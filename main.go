@@ -1,15 +1,15 @@
 package main
 
 import (
-	"example/httpServers/httpServer"
+	hs "example/httpServers/httpServer"
 	"log"
 	"net/http"
 )
 
 func main() {
-	http.HandleFunc("/view/", httpServer.ViewHandler)
-	http.HandleFunc("/edit/", httpServer.EditHandler)
-	http.HandleFunc("/save/", httpServer.SaveHandler)
+	http.HandleFunc("/view/", hs.MakeHandler(hs.ViewHandler))
+	http.HandleFunc("/edit/", hs.MakeHandler(hs.EditHandler))
+	http.HandleFunc("/save/", hs.MakeHandler(hs.SaveHandler))
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

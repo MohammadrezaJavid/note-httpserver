@@ -1,7 +1,6 @@
 package httpServer
 
 import (
-	"errors"
 	"net/http"
 	"os"
 	"regexp"
@@ -20,39 +19,22 @@ const PermissinFile = 0600
 var templates = template.Must(template.ParseFiles("./html/edit.html", "./html/view.html"))
 var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 
-func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
+func MakeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		result := validPath.FindStringSubmatch(r.URL.Path)
 
-	result := validPath.FindStringSubmatch(r.URL.Path)
+		if result == nil {
+			http.NotFound(w, r)
+			return
+		}
+		fn(w, r, result[2])
 
-	if result == nil {
-		http.NotFound(w, r)
-		return "", errors.New("invalid Page Title")
 	}
-	return result[2], nil
 }
 
 func (page *Page) savePage() error {
 	fileName := PrefixFile + page.Title + SuffixFile
 	return os.WriteFile(fileName, page.Body, PermissinFile)
-}
-
-func SaveHandler(w http.ResponseWriter, r *http.Request) {
-	title, er := getTitle(w, r)
-	if er != nil {
-		return
-	}
-
-	body := r.FormValue("body")
-	page := &Page{Title: title, Body: []byte(body)}
-
-	err := page.savePage()
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	http.Redirect(w, r, "/view/"+title, http.StatusFound)
 }
 
 func viewPage(title string) (*Page, error) {
@@ -66,12 +48,28 @@ func viewPage(title string) (*Page, error) {
 	return &Page{Title: title, Body: body}, nil
 }
 
-func ViewHandler(w http.ResponseWriter, r *http.Request) {
-	title, err := getTitle(w, r)
+func renderTemplate(w http.ResponseWriter, htmlTemplatePath string, page *Page) {
+	err := templates.ExecuteTemplate(w, htmlTemplatePath, page)
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func SaveHandler(w http.ResponseWriter, r *http.Request, title string) {
+	body := r.FormValue("body")
+	page := &Page{Title: title, Body: []byte(body)}
+
+	err := page.savePage()
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	http.Redirect(w, r, "/view/"+title, http.StatusFound)
+}
+
+func ViewHandler(w http.ResponseWriter, r *http.Request, title string) {
 	page, err := viewPage(title)
 
 	if err != nil {
@@ -81,12 +79,7 @@ func ViewHandler(w http.ResponseWriter, r *http.Request) {
 	renderTemplate(w, "view.html", page)
 }
 
-func EditHandler(w http.ResponseWriter, r *http.Request) {
-	title, err := getTitle(w, r)
-	if err != nil {
-		return
-	}
-
+func EditHandler(w http.ResponseWriter, r *http.Request, title string) {
 	page, err := viewPage(title)
 
 	if err != nil {
@@ -94,11 +87,4 @@ func EditHandler(w http.ResponseWriter, r *http.Request) {
 		page.savePage()
 	}
 	renderTemplate(w, "edit.html", page)
-}
-
-func renderTemplate(w http.ResponseWriter, htmlTemplatePath string, page *Page) {
-	err := templates.ExecuteTemplate(w, htmlTemplatePath, page)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }
