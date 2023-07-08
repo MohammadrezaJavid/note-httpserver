@@ -1,8 +1,10 @@
 package httpServer
 
 import (
+	"errors"
 	"net/http"
 	"os"
+	"regexp"
 	"text/template"
 )
 
@@ -16,6 +18,18 @@ const PrefixFile = "./txt/"
 const PermissinFile = 0600
 
 var templates = template.Must(template.ParseFiles("./html/edit.html", "./html/view.html"))
+var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
+
+func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
+
+	result := validPath.FindStringSubmatch(r.URL.Path)
+
+	if result == nil {
+		http.NotFound(w, r)
+		return "", errors.New("invalid Page Title")
+	}
+	return result[2], nil
+}
 
 func (page *Page) savePage() error {
 	fileName := PrefixFile + page.Title + SuffixFile
@@ -23,7 +37,11 @@ func (page *Page) savePage() error {
 }
 
 func SaveHandler(w http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[len("/save/"):]
+	title, er := getTitle(w, r)
+	if er != nil {
+		return
+	}
+
 	body := r.FormValue("body")
 	page := &Page{Title: title, Body: []byte(body)}
 
@@ -49,7 +67,11 @@ func viewPage(title string) (*Page, error) {
 }
 
 func ViewHandler(w http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[len("/view/"):]
+	title, err := getTitle(w, r)
+	if err != nil {
+		return
+	}
+
 	page, err := viewPage(title)
 
 	if err != nil {
@@ -60,7 +82,11 @@ func ViewHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func EditHandler(w http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[len("/edit/"):]
+	title, err := getTitle(w, r)
+	if err != nil {
+		return
+	}
+
 	page, err := viewPage(title)
 
 	if err != nil {
