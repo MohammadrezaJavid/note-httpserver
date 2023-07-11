@@ -1,23 +1,17 @@
-ARG     CODE_VERSION=1.21rc2-alpine3.18
+FROM    golang:1.21rc2-alpine3.18 AS builder
 
-FROM    golang:${CODE_VERSION}
+WORKDIR /app
 
-ENV     HOME=/httpServers
+COPY go.mod ./
+# COPY go.sum ./
 
-WORKDIR ${HOME}
+COPY *.go ./
 
-RUN mkdir -p ${HOME} &&\
-    mkdir -p ${HOME}/txt &&\
-    mkdir -p ${HOME}/html &&\
-    mkdir -p ${HOME}/httpServer
+COPY txt/ ./txt
+COPY html/ ./html
+COPY httpServer ./httpServer
 
-COPY ./go.mod           ${HOME}
-COPY ./*.go             ${HOME}
-COPY ./httpServer/*.go  ${HOME}/httpServer
-COPY ./html/*.html      ${HOME}/html
+RUN go mod tidy &&\
+ CGO_ENABLE=0 GOOS=linux GOARCH=amd64 go build -o note-app 
 
-RUN go build -o httpserver main.go 
-
-EXPOSE 8080
-
-CMD [ "./httpserver" ]
+CMD [ "./note-app" ]
