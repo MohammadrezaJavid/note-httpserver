@@ -1,0 +1,18 @@
+version: '3.9'
+networks:
+  default:
+    name: note_net
+
+volumes:
+  note_txt:
+
+services:
+  note:
+    image: note-app:latest
+    container_name: note1
+    restart: always
+    volumes:
+      - note_txt:/app/txt
+    ports:
+      - 8080:8080
+    
